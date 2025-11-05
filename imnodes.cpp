@@ -350,12 +350,7 @@ void ImDrawListGrowChannels(ImDrawList* draw_list, const int num_channels)
         {
             ImDrawCmd draw_cmd;
             draw_cmd.ClipRect = draw_list->_ClipRectStack.back();
-#if defined(IMGUI_HAS_DOCK) || (IMGUI_VERSION_NUM >= 19000)
-            // Use current command header's texture id when available
-            draw_cmd.TextureId = draw_list->_CmdHeader.TextureId;
-#else
-            draw_cmd.TextureId = draw_list->_TextureIdStack.back();
-#endif
+            // Texture assignment omitted for compatibility; draw ops will set texture.
             channel._CmdBuffer.push_back(draw_cmd);
         }
     }

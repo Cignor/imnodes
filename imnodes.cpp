@@ -350,7 +350,12 @@ void ImDrawListGrowChannels(ImDrawList* draw_list, const int num_channels)
         {
             ImDrawCmd draw_cmd;
             draw_cmd.ClipRect = draw_list->_ClipRectStack.back();
+#if defined(IMGUI_HAS_DOCK) || (IMGUI_VERSION_NUM >= 19000)
+            // Use current command header's texture id when available
+            draw_cmd.TextureId = draw_list->_CmdHeader.TextureId;
+#else
             draw_cmd.TextureId = draw_list->_TextureIdStack.back();
+#endif
             channel._CmdBuffer.push_back(draw_cmd);
         }
     }
@@ -2282,12 +2287,19 @@ void BeginNodeEditor()
         GImNodes->OriginalImgCtx = ImGui::GetCurrentContext();
 
         // Copy config settings in IO from main context, avoiding input fields
-        memcpy(
-            (void*)&GImNodes->NodeEditorImgCtx->IO,
-            (void*)&GImNodes->OriginalImgCtx->IO,
-            offsetof(ImGuiIO, SetPlatformImeDataFn) +
-                sizeof(GImNodes->OriginalImgCtx->IO.SetPlatformImeDataFn));
-
+        {
+            ImGuiIO& src = GImNodes->OriginalImgCtx->IO;
+            ImGuiIO& dst = GImNodes->NodeEditorImgCtx->IO;
+            dst.ConfigFlags = src.ConfigFlags;
+            dst.BackendFlags = src.BackendFlags;
+            dst.DisplayFramebufferScale = src.DisplayFramebufferScale;
+            dst.FontGlobalScale = src.FontGlobalScale;
+            dst.DeltaTime = src.DeltaTime;
+            dst.DisplaySize = ImMax(canvas_size / editor.ZoomScale, ImVec2(0, 0));
+            dst.IniFilename = nullptr;
+            dst.ConfigInputTrickleEventQueue = false;
+        }
+        
         GImNodes->NodeEditorImgCtx->IO.BackendPlatformUserData = nullptr;
         GImNodes->NodeEditorImgCtx->IO.BackendRendererUserData = nullptr;
         GImNodes->NodeEditorImgCtx->IO.IniFilename = nullptr;

@@ -1436,7 +1436,7 @@ TriangleOffsets CalculateTriangleOffsets(const float side_length)
     return offset;
 }
 
-void DrawPinShape(const ImVec2& pin_pos, const ImPinData& pin, const ImU32 pin_color)
+void DrawPinShape(const ImVec2& pin_pos, const ImPinData& pin, const ImU32 pin_color, float zoom_scale)
 {
     static const int CIRCLE_NUM_SEGMENTS = 8;
 
@@ -1446,33 +1446,33 @@ void DrawPinShape(const ImVec2& pin_pos, const ImPinData& pin, const ImU32 pin_c
     {
         GImNodes->CanvasDrawList->AddCircle(
             pin_pos,
-            GImNodes->Style.PinCircleRadius,
+            GImNodes->Style.PinCircleRadius * zoom_scale,
             pin_color,
             CIRCLE_NUM_SEGMENTS,
-            GImNodes->Style.PinLineThickness);
+            GImNodes->Style.PinLineThickness * zoom_scale);
     }
     break;
     case ImNodesPinShape_CircleFilled:
     {
         GImNodes->CanvasDrawList->AddCircleFilled(
-            pin_pos, GImNodes->Style.PinCircleRadius, pin_color, CIRCLE_NUM_SEGMENTS);
+            pin_pos, GImNodes->Style.PinCircleRadius * zoom_scale, pin_color, CIRCLE_NUM_SEGMENTS);
     }
     break;
     case ImNodesPinShape_Quad:
     {
-        const QuadOffsets offset = CalculateQuadOffsets(GImNodes->Style.PinQuadSideLength);
+        const QuadOffsets offset = CalculateQuadOffsets(GImNodes->Style.PinQuadSideLength * zoom_scale);
         GImNodes->CanvasDrawList->AddQuad(
             pin_pos + offset.TopLeft,
             pin_pos + offset.BottomLeft,
             pin_pos + offset.BottomRight,
             pin_pos + offset.TopRight,
             pin_color,
-            GImNodes->Style.PinLineThickness);
+            GImNodes->Style.PinLineThickness * zoom_scale);
     }
     break;
     case ImNodesPinShape_QuadFilled:
     {
-        const QuadOffsets offset = CalculateQuadOffsets(GImNodes->Style.PinQuadSideLength);
+        const QuadOffsets offset = CalculateQuadOffsets(GImNodes->Style.PinQuadSideLength * zoom_scale);
         GImNodes->CanvasDrawList->AddQuadFilled(
             pin_pos + offset.TopLeft,
             pin_pos + offset.BottomLeft,
@@ -1484,7 +1484,7 @@ void DrawPinShape(const ImVec2& pin_pos, const ImPinData& pin, const ImU32 pin_c
     case ImNodesPinShape_Triangle:
     {
         const TriangleOffsets offset =
-            CalculateTriangleOffsets(GImNodes->Style.PinTriangleSideLength);
+            CalculateTriangleOffsets(GImNodes->Style.PinTriangleSideLength * zoom_scale);
         GImNodes->CanvasDrawList->AddTriangle(
             pin_pos + offset.TopLeft,
             pin_pos + offset.BottomLeft,
@@ -1494,13 +1494,13 @@ void DrawPinShape(const ImVec2& pin_pos, const ImPinData& pin, const ImU32 pin_c
             // much thinner than the lines drawn by AddCircle or AddQuad.
             // Multiplying the line thickness by two seemed to solve the
             // problem at a few different thickness values.
-            2.f * GImNodes->Style.PinLineThickness);
+            2.f * GImNodes->Style.PinLineThickness * zoom_scale);
     }
     break;
     case ImNodesPinShape_TriangleFilled:
     {
         const TriangleOffsets offset =
-            CalculateTriangleOffsets(GImNodes->Style.PinTriangleSideLength);
+            CalculateTriangleOffsets(GImNodes->Style.PinTriangleSideLength * zoom_scale);
         GImNodes->CanvasDrawList->AddTriangleFilled(
             pin_pos + offset.TopLeft,
             pin_pos + offset.BottomLeft,
@@ -1528,7 +1528,7 @@ void DrawPin(ImNodesEditorContext& editor, const int pin_idx)
         pin_color = pin.ColorStyle.Hovered;
     }
 
-    DrawPinShape(pin.Pos, pin, pin_color);
+    DrawPinShape(pin.Pos, pin, pin_color, editor.ZoomScale);
 }
 
 void DrawNode(ImNodesEditorContext& editor, const int node_idx)
@@ -2538,9 +2538,11 @@ void BeginNode(const int node_id)
     node.ColorStyle.Titlebar = GImNodes->Style.Colors[ImNodesCol_TitleBar];
     node.ColorStyle.TitlebarHovered = GImNodes->Style.Colors[ImNodesCol_TitleBarHovered];
     node.ColorStyle.TitlebarSelected = GImNodes->Style.Colors[ImNodesCol_TitleBarSelected];
-    node.LayoutStyle.CornerRounding = GImNodes->Style.NodeCornerRounding;
-    node.LayoutStyle.Padding = GImNodes->Style.NodePadding;
-    node.LayoutStyle.BorderThickness = GImNodes->Style.NodeBorderThickness;
+    
+    // Scale node layout properties by zoom
+    node.LayoutStyle.CornerRounding = GImNodes->Style.NodeCornerRounding * editor.ZoomScale;
+    node.LayoutStyle.Padding = GImNodes->Style.NodePadding * editor.ZoomScale;
+    node.LayoutStyle.BorderThickness = GImNodes->Style.NodeBorderThickness * editor.ZoomScale;
 
     // ImGui::SetCursorPos sets the cursor position, local to the current widget
     // (in this case, the child object started in BeginNodeEditor). Use
@@ -2552,6 +2554,9 @@ void BeginNode(const int node_id)
 
     ImGui::PushID(node.Id);
     ImGui::BeginGroup();
+    
+    // Scale font and widgets by zoom
+    ImGui::SetWindowFontScale(editor.ZoomScale);
 }
 
 void EndNode()
@@ -2560,6 +2565,9 @@ void EndNode()
     GImNodes->CurrentScope = ImNodesScope_Editor;
 
     ImNodesEditorContext& editor = EditorContextGet();
+
+    // Reset font scale
+    ImGui::SetWindowFontScale(1.0f);
 
     // The node's rectangle depends on the ImGui UI group size.
     ImGui::EndGroup();

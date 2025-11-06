@@ -2276,67 +2276,25 @@ void BeginNodeEditor()
 
     ImGui::BeginGroup();
     {
-        // Setup zoom context
+        // JUCE-Compatible Simple Zoom (no dual-context system)
+        // Store canvas info for coordinate transformations
         ImVec2 canvas_size = ImGui::GetContentRegionAvail();
         GImNodes->CanvasOriginalOrigin = ImGui::GetCursorScreenPos();
-        GImNodes->OriginalImgCtx = ImGui::GetCurrentContext();
+        GImNodes->OriginalImgCtx = ImGui::GetCurrentContext();  // Keep for compatibility
 
-        // Copy config settings in IO from main context, avoiding input fields
-        memcpy(
-            (void*)&GImNodes->NodeEditorImgCtx->IO,
-            (void*)&GImNodes->OriginalImgCtx->IO,
-            offsetof(ImGuiIO, SetPlatformImeDataFn) +
-                sizeof(GImNodes->OriginalImgCtx->IO.SetPlatformImeDataFn));
+        // No context switching - stay in original ImGui context
+        // Zoom is applied via coordinate transformations only
 
-        GImNodes->NodeEditorImgCtx->IO.BackendPlatformUserData = nullptr;
-        GImNodes->NodeEditorImgCtx->IO.BackendRendererUserData = nullptr;
-        GImNodes->NodeEditorImgCtx->IO.IniFilename = nullptr;
-        GImNodes->NodeEditorImgCtx->IO.ConfigInputTrickleEventQueue = false;
-        GImNodes->NodeEditorImgCtx->IO.DisplaySize = ImMax(canvas_size / editor.ZoomScale, ImVec2(0, 0));
-        GImNodes->NodeEditorImgCtx->Style = GImNodes->OriginalImgCtx->Style;
-
-        // Nav (tabbing) needs to be disabled otherwise it doubles up with the main context
-        // not sure how to get this working correctly
         ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
                                        ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove;
 
-        // Button to capture mouse events and hover test
+        // Canvas child window for capturing hover
         ImGui::BeginChild("canvas_no_drag", canvas_size, 0, windowFlags);
 
         if (ImGui::IsWindowHovered())
         {
             GImNodes->IsHovered = true;            
         }
-        else
-        {
-            windowFlags |= ImGuiWindowFlags_NoInputs;
-            GImNodes->NodeEditorImgCtx->IO.ConfigFlags |= ImGuiConfigFlags_NoMouse;
-        }
-
-        // Copy IO events
-        GImNodes->NodeEditorImgCtx->InputEventsQueue = GImNodes->OriginalImgCtx->InputEventsTrail;
-        for (ImGuiInputEvent& e : GImNodes->NodeEditorImgCtx->InputEventsQueue)
-        {
-            if (e.Type == ImGuiInputEventType_MousePos)
-            {
-                e.MousePos.PosX =
-                    (e.MousePos.PosX - GImNodes->CanvasOriginalOrigin.x) / editor.ZoomScale;
-                e.MousePos.PosY =
-                    (e.MousePos.PosY - GImNodes->CanvasOriginalOrigin.y) / editor.ZoomScale;                
-            }
-        }
-
-        ImGui::SetCurrentContext(GImNodes->NodeEditorImgCtx);
-        ImGui::NewFrame();
-
-        ImGui::SetNextWindowPos(ImVec2(0, 0));
-        ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1, 1));
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, GImNodes->Style.Colors[ImNodesCol_GridBackground]);
-        ImGui::Begin("editor_canvas", nullptr, windowFlags);
-        ImGui::PopStyleVar(2);
-        ImGui::PopStyleColor();
 
         GImNodes->CanvasOriginScreenSpace = ImGui::GetCursorScreenPos();
 
@@ -2519,30 +2477,12 @@ void EndNodeEditor()
     // Finally, merge the draw channels
     GImNodes->CanvasDrawList->ChannelsMerge();
 
-    GImNodes->OriginalImgCtx->WantTextInputNextFrame = ImMax(
-        GImNodes->OriginalImgCtx->WantTextInputNextFrame,
-        GImNodes->NodeEditorImgCtx->WantTextInputNextFrame);
-
-    if (MouseInCanvas())
-    {
-        GImNodes->OriginalImgCtx->MouseCursor = GImNodes->NodeEditorImgCtx->MouseCursor;
-    }
-
-    // End frame for zoom context
-    ImGui::End();
-    ImGui::Render();
-
-    ImDrawData* draw_data = ImGui::GetDrawData();
-
-    ImGui::SetCurrentContext(GImNodes->OriginalImgCtx);
-    GImNodes->OriginalImgCtx = nullptr;
-
+    // JUCE-Compatible Simple Zoom (no dual-context cleanup needed)
+    // End the canvas child window and group in the SAME context we started in
     ImGui::EndChild();
     ImGui::EndGroup();
-
-    // Copy draw data over to original context
-    for (int i = 0; i < draw_data->CmdListsCount; ++i)
-        AppendDrawData(draw_data->CmdLists[i], GImNodes->CanvasOriginalOrigin, editor.ZoomScale);
+    
+    GImNodes->OriginalImgCtx = nullptr;
 }
 
 void MiniMap(

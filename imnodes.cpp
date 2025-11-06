@@ -2557,6 +2557,11 @@ void BeginNode(const int node_id)
     
     // Scale font and widgets by zoom
     ImGui::SetWindowFontScale(editor.ZoomScale);
+    
+    // Scale widget sizes and spacing
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImGui::GetStyle().FramePadding * editor.ZoomScale);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImGui::GetStyle().ItemSpacing * editor.ZoomScale);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImGui::GetStyle().ItemInnerSpacing * editor.ZoomScale);
 }
 
 void EndNode()
@@ -2566,6 +2571,9 @@ void EndNode()
 
     ImNodesEditorContext& editor = EditorContextGet();
 
+    // Pop style vars (3 variables pushed in BeginNode)
+    ImGui::PopStyleVar(3);
+    
     // Reset font scale
     ImGui::SetWindowFontScale(1.0f);
 

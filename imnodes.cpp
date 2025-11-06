@@ -350,7 +350,8 @@ void ImDrawListGrowChannels(ImDrawList* draw_list, const int num_channels)
         {
             ImDrawCmd draw_cmd;
             draw_cmd.ClipRect = draw_list->_ClipRectStack.back();
-            draw_cmd.TextureId = draw_list->_TextureIdStack.back();
+            // ImGui docking branch: copy TexRef from header (ImGui 1.92+)
+            draw_cmd.TexRef = draw_list->_CmdHeader.TexRef;
             channel._CmdBuffer.push_back(draw_cmd);
         }
     }

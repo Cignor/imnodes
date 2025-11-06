@@ -255,7 +255,8 @@ inline bool RectangleOverlapsLink(
 
 inline ImVec2 ScreenSpaceToGridSpace(const ImNodesEditorContext& editor, const ImVec2& v)
 {
-    return v - GImNodes->CanvasOriginScreenSpace - editor.Panning;
+    // Apply zoom: (screen - origin - panning) / zoom
+    return (v - GImNodes->CanvasOriginScreenSpace - editor.Panning) / editor.ZoomScale;
 }
 
 inline ImRect ScreenSpaceToGridSpace(const ImNodesEditorContext& editor, const ImRect& r)
@@ -265,17 +266,20 @@ inline ImRect ScreenSpaceToGridSpace(const ImNodesEditorContext& editor, const I
 
 inline ImVec2 GridSpaceToScreenSpace(const ImNodesEditorContext& editor, const ImVec2& v)
 {
-    return v + GImNodes->CanvasOriginScreenSpace + editor.Panning;
+    // Apply zoom: (grid * zoom) + origin + panning
+    return (v * editor.ZoomScale) + GImNodes->CanvasOriginScreenSpace + editor.Panning;
 }
 
 inline ImVec2 GridSpaceToEditorSpace(const ImNodesEditorContext& editor, const ImVec2& v)
 {
-    return v + editor.Panning;
+    // Apply zoom: (grid * zoom) + panning
+    return (v * editor.ZoomScale) + editor.Panning;
 }
 
 inline ImVec2 EditorSpaceToGridSpace(const ImNodesEditorContext& editor, const ImVec2& v)
 {
-    return v - editor.Panning;
+    // Apply zoom: (editor - panning) / zoom
+    return (v - editor.Panning) / editor.ZoomScale;
 }
 
 inline ImVec2 EditorSpaceToScreenSpace(const ImVec2& v)
@@ -1322,26 +1326,27 @@ inline ImRect GetNodeTitleRect(const ImNodeData& node)
 void DrawGrid(ImNodesEditorContext& editor, const ImVec2& canvas_size)
 {
     const ImVec2 offset = editor.Panning;
+    const float grid_spacing = GImNodes->Style.GridSpacing * editor.ZoomScale;
     ImU32        line_color = GImNodes->Style.Colors[ImNodesCol_GridLine];
     ImU32        line_color_prim = GImNodes->Style.Colors[ImNodesCol_GridLinePrimary];
     bool         draw_primary = GImNodes->Style.Flags & ImNodesStyleFlags_GridLinesPrimary;
 
-    for (float x = fmodf(offset.x, GImNodes->Style.GridSpacing); x < canvas_size.x;
-         x += GImNodes->Style.GridSpacing)
+    for (float x = fmodf(offset.x, grid_spacing); x < canvas_size.x;
+         x += grid_spacing)
     {
         GImNodes->CanvasDrawList->AddLine(
             EditorSpaceToScreenSpace(ImVec2(x, 0.0f)),
             EditorSpaceToScreenSpace(ImVec2(x, canvas_size.y)),
-            offset.x - x == 0.f && draw_primary ? line_color_prim : line_color);
+            fmodf(offset.x - x, grid_spacing) < 0.01f && draw_primary ? line_color_prim : line_color);
     }
 
-    for (float y = fmodf(offset.y, GImNodes->Style.GridSpacing); y < canvas_size.y;
-         y += GImNodes->Style.GridSpacing)
+    for (float y = fmodf(offset.y, grid_spacing); y < canvas_size.y;
+         y += grid_spacing)
     {
         GImNodes->CanvasDrawList->AddLine(
             EditorSpaceToScreenSpace(ImVec2(0.0f, y)),
             EditorSpaceToScreenSpace(ImVec2(canvas_size.x, y)),
-            offset.y - y == 0.f && draw_primary ? line_color_prim : line_color);
+            fmodf(offset.y - y, grid_spacing) < 0.01f && draw_primary ? line_color_prim : line_color);
     }
 }
 

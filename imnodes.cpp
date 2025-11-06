@@ -2558,10 +2558,18 @@ void BeginNode(const int node_id)
     // Scale font and widgets by zoom
     ImGui::SetWindowFontScale(editor.ZoomScale);
     
-    // Scale widget sizes and spacing
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImGui::GetStyle().FramePadding * editor.ZoomScale);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImGui::GetStyle().ItemSpacing * editor.ZoomScale);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImGui::GetStyle().ItemInnerSpacing * editor.ZoomScale);
+    // Scale ALL size-related style variables for uniform scaling
+    const ImGuiStyle& style = ImGui::GetStyle();
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, style.FramePadding * editor.ZoomScale);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, style.FrameRounding * editor.ZoomScale);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, style.FrameBorderSize * editor.ZoomScale);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, style.ItemSpacing * editor.ZoomScale);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, style.ItemInnerSpacing * editor.ZoomScale);
+    ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, style.IndentSpacing * editor.ZoomScale);
+    ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, style.ScrollbarSize * editor.ZoomScale);
+    ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, style.ScrollbarRounding * editor.ZoomScale);
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, style.GrabMinSize * editor.ZoomScale);
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, style.GrabRounding * editor.ZoomScale);
 }
 
 void EndNode()
@@ -2571,8 +2579,8 @@ void EndNode()
 
     ImNodesEditorContext& editor = EditorContextGet();
 
-    // Pop style vars (3 variables pushed in BeginNode)
-    ImGui::PopStyleVar(3);
+    // Pop style vars (10 variables pushed in BeginNode)
+    ImGui::PopStyleVar(10);
     
     // Reset font scale
     ImGui::SetWindowFontScale(1.0f);

@@ -2877,25 +2877,30 @@ void EditorContextSetZoom(float zoom_scale, ImVec2 zoom_centering_pos)
     IM_ASSERT(GImNodes->CurrentScope == ImNodesScope_None);
 
     ImNodesEditorContext& editor = EditorContextGet();
+    const float old_zoom = editor.ZoomScale;
     const float new_zoom = ImMax(0.1f, ImMin(10.0f, zoom_scale));
 
-    zoom_centering_pos -= GImNodes->CanvasOriginalOrigin;
-    editor.Panning += zoom_centering_pos / new_zoom - zoom_centering_pos / editor.ZoomScale;
-
-    // Fix mouse position
-    GImNodes->NodeEditorImgCtx->IO.MousePos *= editor.ZoomScale / new_zoom;
+    // Convert mouse position to editor space (relative to canvas origin)
+    const ImVec2 zoom_pos_editor = zoom_centering_pos - GImNodes->CanvasOriginScreenSpace;
+    
+    // Calculate the grid point under the mouse cursor
+    const ImVec2 grid_point = (zoom_pos_editor - editor.Panning) / old_zoom;
+    
+    // Adjust panning so the same grid point stays under the mouse after zoom
+    const ImVec2 new_panning = zoom_pos_editor - (grid_point * new_zoom);
+    editor.Panning = new_panning;
 
     editor.ZoomScale = new_zoom;
 }
 
 ImVec2 ConvertToEditorContextSpace(const ImVec2& screen_space_pos)
 {
-    return (screen_space_pos - GImNodes->CanvasOriginalOrigin) / EditorContextGet().ZoomScale;
+    return (screen_space_pos - GImNodes->CanvasOriginScreenSpace) / EditorContextGet().ZoomScale;
 }
 
 ImVec2 ConvertFromEditorContextSpace(const ImVec2& screen_space_pos)
 {
-    return (screen_space_pos * EditorContextGet().ZoomScale) + GImNodes->CanvasOriginalOrigin;    
+    return (screen_space_pos * EditorContextGet().ZoomScale) + GImNodes->CanvasOriginScreenSpace;    
 }
 
 bool IsEditorHovered() { return MouseInCanvas(); }

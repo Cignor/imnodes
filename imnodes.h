@@ -255,6 +255,15 @@ ImVec2                EditorContextGetPanning();
 void                  EditorContextResetPanning(const ImVec2& pos);
 void                  EditorContextMoveToNode(const int node_id);
 
+// Canvas Transform Zoom API
+// Get current zoom level (1.0 = 100%, 2.0 = 200%, 0.5 = 50%)
+float EditorContextGetZoom();
+// Set zoom level with optional pivot point (screen-space position to zoom around)
+// If pivot is (-1, -1), zooms around canvas center
+void  EditorContextSetZoom(float zoom, const ImVec2& pivot = ImVec2(-1.f, -1.f));
+// Reset zoom to 100%
+void  EditorContextResetZoom();
+
 ImNodesIO& GetIO();
 
 // Returns the global style struct. See the struct declaration for default values.

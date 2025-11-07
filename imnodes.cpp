@@ -41,6 +41,46 @@ struct CubicBezier
     int    NumSegments;
 };
 
+// [SECTION] canvas transform zoom helpers
+
+// Transform grid space coordinates to screen space (applies zoom and panning)
+inline ImVec2 GridToScreen(const ImVec2& grid_pos)
+{
+    const ImNodesEditorContext& editor = EditorContextGet();
+    return editor.CanvasOrigin + (grid_pos + editor.Panning) * editor.Zoom;
+}
+
+// Transform screen space coordinates to grid space (inverse of GridToScreen)
+inline ImVec2 ScreenToGrid(const ImVec2& screen_pos)
+{
+    const ImNodesEditorContext& editor = EditorContextGet();
+    return (screen_pos - editor.CanvasOrigin) / editor.Zoom - editor.Panning;
+}
+
+// Scale a value by current zoom level
+inline float ScaleByZoom(float value)
+{
+    return value * EditorContextGet().Zoom;
+}
+
+// Scale a value inversely by zoom (for maintaining screen-space size)
+inline float ScaleInverseZoom(float value)
+{
+    return value / EditorContextGet().Zoom;
+}
+
+// Transform a rectangle from grid space to screen space
+inline ImRect GridRectToScreen(const ImRect& grid_rect)
+{
+    return ImRect(GridToScreen(grid_rect.Min), GridToScreen(grid_rect.Max));
+}
+
+// Transform a rectangle from screen space to grid space
+inline ImRect ScreenRectToGrid(const ImRect& screen_rect)
+{
+    return ImRect(ScreenToGrid(screen_rect.Min), ScreenToGrid(screen_rect.Max));
+}
+
 inline ImVec2 EvalCubicBezier(
     const float   t,
     const ImVec2& P0,
@@ -2053,6 +2093,54 @@ void EditorContextResetPanning(const ImVec2& pos)
     editor.Panning = pos;
 }
 
+float EditorContextGetZoom()
+{
+    if (GImNodes == nullptr || GImNodes->EditorCtx == nullptr)
+        return 1.0f;
+    return EditorContextGet().Zoom;
+}
+
+void EditorContextSetZoom(float zoom, const ImVec2& pivot)
+{
+    if (GImNodes == nullptr || GImNodes->EditorCtx == nullptr)
+        return;
+    
+    ImNodesEditorContext& editor = EditorContextGet();
+    
+    // Clamp zoom to valid range (10% to 500%)
+    zoom = ImClamp(zoom, 0.1f, 5.0f);
+    
+    // Determine pivot point (use canvas center if not specified)
+    ImVec2 actual_pivot = pivot;
+    if (pivot.x < 0.0f || pivot.y < 0.0f)
+    {
+        // Default to canvas center
+        actual_pivot = editor.CanvasOrigin + editor.CanvasSize * 0.5f;
+    }
+    
+    // Calculate grid position under pivot before zoom change
+    // This is the point that should remain fixed under the cursor
+    const ImVec2 grid_pos_before = (actual_pivot - editor.CanvasOrigin) / editor.Zoom - editor.Panning;
+    
+    // Apply new zoom
+    editor.Zoom = zoom;
+    
+    // Calculate grid position under pivot after zoom change
+    const ImVec2 grid_pos_after = (actual_pivot - editor.CanvasOrigin) / editor.Zoom - editor.Panning;
+    
+    // Adjust panning to keep the pivot point fixed in screen space
+    // (compensate for the shift caused by zoom change)
+    editor.Panning += (grid_pos_before - grid_pos_after);
+    
+    // Store pivot for reference
+    editor.ZoomPivot = actual_pivot;
+}
+
+void EditorContextResetZoom()
+{
+    EditorContextSetZoom(1.0f);
+}
+
 void EditorContextMoveToNode(const int node_id)
 {
     ImNodesEditorContext& editor = EditorContextGet();
@@ -2266,6 +2354,13 @@ void BeginNodeEditor()
             const ImVec2 canvas_size = ImGui::GetWindowSize();
             GImNodes->CanvasRectScreenSpace = ImRect(
                 EditorSpaceToScreenSpace(ImVec2(0.f, 0.f)), EditorSpaceToScreenSpace(canvas_size));
+
+            // Store canvas info for zoom transformations
+            editor.CanvasOrigin = GImNodes->CanvasOriginScreenSpace;
+            editor.CanvasSize = canvas_size;
+            
+            // Ensure zoom is in valid range
+            editor.Zoom = ImClamp(editor.Zoom, 0.1f, 5.0f);
 
             if (GImNodes->Style.Flags & ImNodesStyleFlags_GridLines)
             {

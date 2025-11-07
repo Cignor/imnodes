@@ -282,11 +282,18 @@ struct ImNodesEditorContext
     ImRect MiniMapContentScreenSpace;
     float  MiniMapScaling;
 
+    // Canvas Transform Zoom state
+    float  Zoom;              // Current zoom level (1.0 = 100%)
+    ImVec2 ZoomPivot;         // Last zoom pivot point (for smooth zooming)
+    ImVec2 CanvasOrigin;      // Canvas top-left in screen space
+    ImVec2 CanvasSize;        // Canvas size in screen space
+
     ImNodesEditorContext()
         : Nodes(), Pins(), Links(), Panning(0.f, 0.f), SelectedNodeIndices(), SelectedLinkIndices(),
           SelectedNodeOffsets(), PrimaryNodeOffset(0.f, 0.f), ClickInteraction(),
           MiniMapEnabled(false), MiniMapSizeFraction(0.0f), MiniMapNodeHoveringCallback(NULL),
-          MiniMapNodeHoveringCallbackUserData(NULL), MiniMapScaling(0.0f)
+          MiniMapNodeHoveringCallbackUserData(NULL), MiniMapScaling(0.0f),
+          Zoom(1.0f), ZoomPivot(0.f, 0.f), CanvasOrigin(0.f, 0.f), CanvasSize(0.f, 0.f)
     {
     }
 };

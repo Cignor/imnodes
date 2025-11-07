@@ -2274,89 +2274,86 @@ void BeginNodeEditor()
     GImNodes->ActiveAttribute = false;
     GImNodes->IsHovered = false;
 
-    ImGui::BeginGroup();
+    // Setup zoom context
+    ImVec2 canvas_size = ImGui::GetContentRegionAvail();
+    GImNodes->CanvasOriginalOrigin = ImGui::GetCursorScreenPos();
+    GImNodes->OriginalImgCtx = ImGui::GetCurrentContext();
+
+    // Copy config settings in IO from main context, avoiding input fields
     {
-        // Setup zoom context
-        ImVec2 canvas_size = ImGui::GetContentRegionAvail();
-        GImNodes->CanvasOriginalOrigin = ImGui::GetCursorScreenPos();
-        GImNodes->OriginalImgCtx = ImGui::GetCurrentContext();
+        ImGuiIO& src = GImNodes->OriginalImgCtx->IO;
+        ImGuiIO& dst = GImNodes->NodeEditorImgCtx->IO;
+        dst.ConfigFlags = src.ConfigFlags;
+        dst.BackendFlags = src.BackendFlags;
+        dst.DisplayFramebufferScale = src.DisplayFramebufferScale;
+        dst.FontGlobalScale = src.FontGlobalScale;
+        dst.DeltaTime = src.DeltaTime;
+        dst.DisplaySize = ImMax(canvas_size / editor.ZoomScale, ImVec2(0, 0));
+        dst.IniFilename = nullptr;
+        dst.ConfigInputTrickleEventQueue = false;
+    }
+    
+    GImNodes->NodeEditorImgCtx->IO.BackendPlatformUserData = nullptr;
+    GImNodes->NodeEditorImgCtx->IO.BackendRendererUserData = nullptr;
+    GImNodes->NodeEditorImgCtx->IO.IniFilename = nullptr;
+    GImNodes->NodeEditorImgCtx->IO.ConfigInputTrickleEventQueue = false;
+    GImNodes->NodeEditorImgCtx->IO.DisplaySize = ImMax(canvas_size / editor.ZoomScale, ImVec2(0, 0));
+    GImNodes->NodeEditorImgCtx->Style = GImNodes->OriginalImgCtx->Style;
 
-        // Copy config settings in IO from main context, avoiding input fields
+    // Hover detection: check if mouse is within canvas bounds in main context
+    ImVec2 mouse_pos = ImGui::GetMousePos();
+    ImRect canvas_rect(GImNodes->CanvasOriginalOrigin, GImNodes->CanvasOriginalOrigin + canvas_size);
+    GImNodes->IsHovered = canvas_rect.Contains(mouse_pos) && ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
+
+    // Nav (tabbing) needs to be disabled otherwise it doubles up with the main context
+    ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
+                                   ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove;
+
+    if (!GImNodes->IsHovered)
+    {
+        windowFlags |= ImGuiWindowFlags_NoInputs;
+    }
+
+    // Copy IO events
+    GImNodes->NodeEditorImgCtx->InputEventsQueue = GImNodes->OriginalImgCtx->InputEventsTrail;
+    for (ImGuiInputEvent& e : GImNodes->NodeEditorImgCtx->InputEventsQueue)
+    {
+        if (e.Type == ImGuiInputEventType_MousePos)
         {
-            ImGuiIO& src = GImNodes->OriginalImgCtx->IO;
-            ImGuiIO& dst = GImNodes->NodeEditorImgCtx->IO;
-            dst.ConfigFlags = src.ConfigFlags;
-            dst.BackendFlags = src.BackendFlags;
-            dst.DisplayFramebufferScale = src.DisplayFramebufferScale;
-            dst.FontGlobalScale = src.FontGlobalScale;
-            dst.DeltaTime = src.DeltaTime;
-            dst.DisplaySize = ImMax(canvas_size / editor.ZoomScale, ImVec2(0, 0));
-            dst.IniFilename = nullptr;
-            dst.ConfigInputTrickleEventQueue = false;
+            e.MousePos.PosX =
+                (e.MousePos.PosX - GImNodes->CanvasOriginalOrigin.x) / editor.ZoomScale;
+            e.MousePos.PosY =
+                (e.MousePos.PosY - GImNodes->CanvasOriginalOrigin.y) / editor.ZoomScale;                
         }
-        
-        GImNodes->NodeEditorImgCtx->IO.BackendPlatformUserData = nullptr;
-        GImNodes->NodeEditorImgCtx->IO.BackendRendererUserData = nullptr;
-        GImNodes->NodeEditorImgCtx->IO.IniFilename = nullptr;
-        GImNodes->NodeEditorImgCtx->IO.ConfigInputTrickleEventQueue = false;
-        GImNodes->NodeEditorImgCtx->IO.DisplaySize = ImMax(canvas_size / editor.ZoomScale, ImVec2(0, 0));
-        GImNodes->NodeEditorImgCtx->Style = GImNodes->OriginalImgCtx->Style;
+    }
 
-        // Hover detection: check if mouse is within canvas bounds in main context
-        ImVec2 mouse_pos = ImGui::GetMousePos();
-        ImRect canvas_rect(GImNodes->CanvasOriginalOrigin, GImNodes->CanvasOriginalOrigin + canvas_size);
-        GImNodes->IsHovered = canvas_rect.Contains(mouse_pos) && ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
+    ImGui::SetCurrentContext(GImNodes->NodeEditorImgCtx);
+    ImGui::NewFrame();
 
-        // Nav (tabbing) needs to be disabled otherwise it doubles up with the main context
-        ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
-                                       ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove;
+    ImGui::SetNextWindowPos(ImVec2(0, 0));
+    ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1, 1));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, GImNodes->Style.Colors[ImNodesCol_GridBackground]);
+    ImGui::Begin("editor_canvas", nullptr, windowFlags);
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor();
 
-        if (!GImNodes->IsHovered)
+    GImNodes->CanvasOriginScreenSpace = ImGui::GetCursorScreenPos();
+
+    // NOTE: we have to fetch the canvas draw list *after* we call
+    // Begin(), otherwise the ImGui UI elements are going to be
+    // rendered into the parent window draw list.
+    DrawListSet(ImGui::GetWindowDrawList());
+
+    {
+        const ImVec2 window_size = ImGui::GetWindowSize();
+        GImNodes->CanvasRectScreenSpace = ImRect(
+            EditorSpaceToScreenSpace(ImVec2(0.f, 0.f)), EditorSpaceToScreenSpace(window_size));
+
+        if (GImNodes->Style.Flags & ImNodesStyleFlags_GridLines)
         {
-            windowFlags |= ImGuiWindowFlags_NoInputs;
-        }
-
-        // Copy IO events
-        GImNodes->NodeEditorImgCtx->InputEventsQueue = GImNodes->OriginalImgCtx->InputEventsTrail;
-        for (ImGuiInputEvent& e : GImNodes->NodeEditorImgCtx->InputEventsQueue)
-        {
-            if (e.Type == ImGuiInputEventType_MousePos)
-            {
-                e.MousePos.PosX =
-                    (e.MousePos.PosX - GImNodes->CanvasOriginalOrigin.x) / editor.ZoomScale;
-                e.MousePos.PosY =
-                    (e.MousePos.PosY - GImNodes->CanvasOriginalOrigin.y) / editor.ZoomScale;                
-            }
-        }
-
-        ImGui::SetCurrentContext(GImNodes->NodeEditorImgCtx);
-        ImGui::NewFrame();
-
-        ImGui::SetNextWindowPos(ImVec2(0, 0));
-        ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1, 1));
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, GImNodes->Style.Colors[ImNodesCol_GridBackground]);
-        ImGui::Begin("editor_canvas", nullptr, windowFlags);
-        ImGui::PopStyleVar(2);
-        ImGui::PopStyleColor();
-
-        GImNodes->CanvasOriginScreenSpace = ImGui::GetCursorScreenPos();
-
-        // NOTE: we have to fetch the canvas draw list *after* we call
-        // BeginChild(), otherwise the ImGui UI elements are going to be
-        // rendered into the parent window draw list.
-        DrawListSet(ImGui::GetWindowDrawList());
-
-        {
-            const ImVec2 window_size = ImGui::GetWindowSize();
-            GImNodes->CanvasRectScreenSpace = ImRect(
-                EditorSpaceToScreenSpace(ImVec2(0.f, 0.f)), EditorSpaceToScreenSpace(window_size));
-
-            if (GImNodes->Style.Flags & ImNodesStyleFlags_GridLines)
-            {
-                DrawGrid(editor, window_size);
-            }
+            DrawGrid(editor, window_size);
         }
     }
 
@@ -2540,7 +2537,8 @@ void EndNodeEditor()
     ImGui::SetCurrentContext(GImNodes->OriginalImgCtx);
     GImNodes->OriginalImgCtx = nullptr;
 
-    ImGui::EndGroup();
+    // Use InvisibleButton to reserve space for the canvas and capture input
+    ImGui::InvisibleButton("##canvas", canvas_size);
 
     // Copy draw data over to original context
     for (int i = 0; i < draw_data->CmdListsCount; ++i)

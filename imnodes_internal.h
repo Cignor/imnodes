@@ -255,6 +255,7 @@ struct ImNodesEditorContext
     float  ZoomScale;
     ImVec2 Panning;
     ImVec2 AutoPanningDelta;
+    ImVec2 CanvasSize; // Cached canvas size for use after context switch
     // Minimum and maximum extents of all content in grid space. Valid after final
     // ImNodes::EndNode() call.
     ImRect GridContentBounds;

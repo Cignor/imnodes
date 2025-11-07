@@ -2275,9 +2275,12 @@ void BeginNodeEditor()
     GImNodes->IsHovered = false;
 
     // Setup zoom context
-    ImVec2 canvas_size = ImGui::GetContentRegionAvail();
+    const ImVec2 canvas_size = ImGui::GetContentRegionAvail();
     GImNodes->CanvasOriginalOrigin = ImGui::GetCursorScreenPos();
     GImNodes->OriginalImgCtx = ImGui::GetCurrentContext();
+    
+    // Store canvas size for later use after context switch
+    editor.CanvasSize = canvas_size;
 
     // Copy config settings in IO from main context, avoiding input fields
     {
@@ -2538,7 +2541,7 @@ void EndNodeEditor()
     GImNodes->OriginalImgCtx = nullptr;
 
     // Use InvisibleButton to reserve space for the canvas and capture input
-    ImGui::InvisibleButton("##canvas", canvas_size);
+    ImGui::InvisibleButton("##canvas", editor.CanvasSize);
 
     // Copy draw data over to original context
     for (int i = 0; i < draw_data->CmdListsCount; ++i)

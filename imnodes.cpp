@@ -2302,22 +2302,18 @@ void BeginNodeEditor()
         GImNodes->NodeEditorImgCtx->IO.DisplaySize = ImMax(canvas_size / editor.ZoomScale, ImVec2(0, 0));
         GImNodes->NodeEditorImgCtx->Style = GImNodes->OriginalImgCtx->Style;
 
+        // Hover detection: check if mouse is within canvas bounds in main context
+        ImVec2 mouse_pos = ImGui::GetMousePos();
+        ImRect canvas_rect(GImNodes->CanvasOriginalOrigin, GImNodes->CanvasOriginalOrigin + canvas_size);
+        GImNodes->IsHovered = canvas_rect.Contains(mouse_pos) && ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
+
         // Nav (tabbing) needs to be disabled otherwise it doubles up with the main context
-        // not sure how to get this working correctly
         ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings |
                                        ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove;
 
-        // Button to capture mouse events and hover test
-        ImGui::BeginChild("canvas_no_drag", canvas_size, 0, windowFlags);
-
-        if (ImGui::IsWindowHovered())
-        {
-            GImNodes->IsHovered = true;            
-        }
-        else
+        if (!GImNodes->IsHovered)
         {
             windowFlags |= ImGuiWindowFlags_NoInputs;
-            GImNodes->NodeEditorImgCtx->IO.ConfigFlags |= ImGuiConfigFlags_NoMouse;
         }
 
         // Copy IO events
@@ -2544,9 +2540,6 @@ void EndNodeEditor()
     ImGui::SetCurrentContext(GImNodes->OriginalImgCtx);
     GImNodes->OriginalImgCtx = nullptr;
 
-    // End the canvas_no_drag child window opened at line 2311
-    ImGui::EndChild();
-    
     ImGui::EndGroup();
 
     // Copy draw data over to original context

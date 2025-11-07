@@ -2544,6 +2544,9 @@ void EndNodeEditor()
     ImGui::SetCurrentContext(GImNodes->OriginalImgCtx);
     GImNodes->OriginalImgCtx = nullptr;
 
+    // End the canvas_no_drag child window opened at line 2311
+    ImGui::EndChild();
+    
     ImGui::EndGroup();
 
     // Copy draw data over to original context

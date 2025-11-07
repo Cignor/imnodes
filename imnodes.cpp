@@ -2544,7 +2544,6 @@ void EndNodeEditor()
     ImGui::SetCurrentContext(GImNodes->OriginalImgCtx);
     GImNodes->OriginalImgCtx = nullptr;
 
-    ImGui::EndChild();
     ImGui::EndGroup();
 
     // Copy draw data over to original context
